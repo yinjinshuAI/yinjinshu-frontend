@@ -3,7 +3,7 @@ import os
 import requests
 
 def handler(request):
-    # 1. 完整跨域头配置，覆盖所有浏览器校验
+    # 1. 完整跨域头，一次性解决所有浏览器预检问题
     headers = {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -11,11 +11,11 @@ def handler(request):
         "Access-Control-Max-Age": "86400"
     }
 
-    # 2. 优先处理OPTIONS预检请求（浏览器跨域请求前必发）
+    # 2. 优先处理OPTIONS预检请求（浏览器发跨域请求前必发）
     if request.method == "OPTIONS":
         return ("", 204, headers)
 
-    # 3. 仅允许POST请求，拦截非法方法
+    # 3. 只允许POST请求，拦截非法方法
     if request.method != "POST":
         return (json.dumps({"error": "Method Not Allowed"}), 405, headers)
 
@@ -25,7 +25,7 @@ def handler(request):
         if not deepseek_key:
             return (json.dumps({"error": "未配置DeepSeek API密钥"}), 401, headers)
 
-        # 5. 解析前端请求体
+        # 5. 解析前端请求，兼容空值
         body = request.json or {}
         user_msg = body.get("message", "你好")
 
@@ -50,8 +50,9 @@ def handler(request):
         )
         api_res.raise_for_status()
 
-        # 7. 返回AI响应
+        # 7. 正常返回AI响应
         return (json.dumps(api_res.json()), 200, headers)
 
     except Exception as e:
+        # 8. 捕获所有异常，返回友好提示
         return (json.dumps({"error": str(e)}), 500, headers)
