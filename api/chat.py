@@ -3,28 +3,33 @@ import os
 import requests
 
 def handler(request):
-    # 配置跨域头，彻底解决前端请求问题
+    # 1. 配置完整跨域头，覆盖所有浏览器校验要求
     headers = {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Max-Age": "86400"
     }
 
-    # 处理OPTIONS预检请求
+    # 2. 优先处理OPTIONS预检请求（浏览器跨域请求前必发）
     if request.method == "OPTIONS":
         return ("", 204, headers)
 
+    # 3. 仅允许POST请求，拦截非法方法
+    if request.method != "POST":
+        return (json.dumps({"error": "Method Not Allowed"}), 405, headers)
+
     try:
-        # 从环境变量读取密钥
+        # 4. 从环境变量读取DeepSeek密钥，增加空值校验
         deepseek_key = os.environ.get("DEEPSEEK_API_KEY")
         if not deepseek_key:
-            return (json.dumps({"error": "未配置DeepSeek密钥"}), 401, headers)
+            return (json.dumps({"error": "未配置DeepSeek API密钥，请在Vercel环境变量中添加DEEPSEEK_API_KEY"}), 401, headers)
 
-        # 解析前端发来的消息
-        body = request.json
+        # 5. 解析前端请求体，兼容空消息兜底
+        body = request.json or {}
         user_message = body.get("message", "你好")
 
-        # 调用DeepSeek API
+        # 6. 调用DeepSeek API，增加超时与异常捕获
         api_response = requests.post(
             "https://api.deepseek.com/v1/chat/completions",
             headers={
@@ -45,8 +50,9 @@ def handler(request):
         )
         api_response.raise_for_status()
 
-        # 返回AI结果给前端
+        # 7. 正常返回AI响应给前端
         return (json.dumps(api_response.json()), 200, headers)
 
     except Exception as e:
-        return (json.dumps({"error": str(e)}), 500, headers)
+        # 8. 捕获所有异常，返回友好提示
+        return (json.dumps({"error": f"服务器异常: {str(e)}"}), 500, headers)
