@@ -16,11 +16,11 @@ body{background:#0a101f;color:#e6e9ef;padding:20px}
 .task-title{color:#c9d1d9;font-size:16px;margin-bottom:10px}
 .progress-bar{width:100%;height:10px;background:#21262d;border-radius:5px;overflow:hidden}
 .progress{height:100%;background:#238636;width:0%;transition:width 0.5s}
-.log-box{background:#0d1117;border-radius:8px;padding:12px;margin-top:12px;height:120px;overflow-y:auto;color:#8b949e;font-size:13px;line-height:1.5}
+.log-box{background:#0d1117;border-radius:8px;padding:12px;margin-top:12px;height:120px;overflow-y:auto;color:#8b949e;font-size:13px;line-height:1.5;white-space:pre-wrap}
 
 .chat{background:#161b22;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;height:600px}
-.messages{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
-.msg{padding:10px 14px;border-radius:14px;max-width:75%;line-height:1.5}
+.messages{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:8px}
+.msg{padding:10px 14px;border-radius:14px;max-width:75%;line-height:1.5;word-wrap:break-word}
 .msg.user{align-self:flex-end;background:#238636;color:white}
 .msg.ai{align-self:flex-start;background:#21262d;color:#e6e9ef}
 
@@ -40,7 +40,8 @@ body{background:#0a101f;color:#e6e9ef;padding:20px}
   <div class="task-panel">
     <div class="task-title">当前任务：等待指令</div>
     <div class="progress-bar"><div class="progress" id="progress"></div></div>
-    <div class="log-box" id="log">系统启动完成...\n等待你的指令...</div>
+    <div class="log-box" id="log">系统启动完成...
+等待你的指令...</div>
   </div>
 
   <div class="chat">
@@ -66,23 +67,29 @@ const send = $('#send')
 const logBox = $('#log')
 const progress = $('#progress')
 
+// 添加消息函数（修复换行和显示）
 function addMsg(text, isUser = false) {
   const div = document.createElement('div')
   div.className = 'msg ' + (isUser ? 'user' : 'ai')
-  div.textContent = text
+  // 修复换行显示问题
+  div.textContent = text.replace(/\\n/g, '\n')
   messages.appendChild(div)
+  // 自动滚动到底部
   messages.scrollTop = messages.scrollHeight
 }
 
+// 添加日志函数（修复换行）
 function appendLog(text) {
-  logBox.innerText += '\n' + text
+  logBox.textContent += '\n' + text
   logBox.scrollTop = logBox.scrollHeight
 }
 
+// 设置任务名称
 function setTask(name) {
   document.querySelector('.task-title').innerText = '当前任务：' + name
 }
 
+// 设置进度条
 function setProgress(n) {
   progress.style.width = n + '%'
 }
@@ -90,8 +97,12 @@ function setProgress(n) {
 // 核心任务执行函数
 async function runAgent(prompt) {
   if (!prompt.trim()) return
+  
+  // 添加用户消息
   addMsg(prompt, true)
   input.value = ''
+  
+  // 更新任务状态
   setTask('AI执行中...')
   setProgress(20)
   appendLog(`执行指令：${prompt}`)
@@ -108,12 +119,15 @@ async function runAgent(prompt) {
     }
 
     const data = await response.json()
+    // 更新进度和任务
     setProgress(100)
     setTask(data.task || '任务完成')
     appendLog(`任务完成：${data.task}`)
+    // 添加AI回复
     addMsg(data.message || '任务执行完成')
 
   } catch (error) {
+    // 异常处理
     setProgress(0)
     setTask('执行异常')
     appendLog(`执行异常：${error.message}`)
@@ -121,9 +135,15 @@ async function runAgent(prompt) {
   }
 }
 
-// 绑定事件
+// 绑定发送按钮
 send.onclick = () => runAgent(input.value)
-input.addEventListener('keypress', e => e.key === 'Enter' && runAgent(input.value))
+// 绑定回车发送
+input.addEventListener('keypress', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault()
+    runAgent(input.value)
+  }
+})
 </script>
 </body>
 </html>
