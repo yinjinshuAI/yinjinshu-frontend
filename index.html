@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全自动AI工作机器人 2.0</title>
+    <title>银金舒 - 高端宠物服装AI顾问</title>
     <style>
         * {
             margin: 0;
@@ -171,41 +171,39 @@
                 <span>AI助手在线 已直连DeepSeek API</span>
             </div>
             <div class="chat-messages" id="chatMessages">
-                <div class="message ai">
+                <div class="message">
                     <div class="message-avatar">AI</div>
                     <div class="message-content">你好！我是你的全自动AI工作机器人，直接输入指令，我会自动执行任务！</div>
                 </div>
             </div>
             <div class="chat-input-area">
-                <input type="text" id="userInput" placeholder="输入你的问题..." />
+                <input type="text" id="userInput" placeholder="输入你的问题...">
                 <button id="sendBtn">发送</button>
             </div>
         </div>
     </div>
 
     <script>
-        // ====================== 【核心配置：替换成你的腾讯云函数地址】 ======================
-        const API_BASE = "https://yinjinshu-8gail7c56b9f87be-1419166396.ap-shanghai.app.tcloudbase.com/yinjinshu-api";
-        // ==================================================================================
-
+        // ====================== 核心API配置（Vercel版，无需修改） ======================
+        const API_URL = "/api/chat";
         const chatMessages = document.getElementById('chatMessages');
         const userInput = document.getElementById('userInput');
         const sendBtn = document.getElementById('sendBtn');
 
         // 添加消息到聊天框
-        function addMessage(sender, content) {
+        function addMessage(sender, content, isUser = false) {
             const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${sender}`;
+            messageDiv.className = `message ${isUser ? 'user' : ''}`;
             
             const avatarDiv = document.createElement('div');
             avatarDiv.className = 'message-avatar';
-            avatarDiv.textContent = sender === 'user' ? '你' : 'AI';
+            avatarDiv.textContent = isUser ? '你' : 'AI';
             
             const contentDiv = document.createElement('div');
             contentDiv.className = 'message-content';
             contentDiv.textContent = content;
 
-            if (sender === 'user') {
+            if (isUser) {
                 messageDiv.appendChild(contentDiv);
                 messageDiv.appendChild(avatarDiv);
             } else {
@@ -215,57 +213,45 @@
 
             chatMessages.appendChild(messageDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
-            return contentDiv;
         }
 
-        // 发送消息（完全正确的请求逻辑）
+        // 发送消息到AI
         async function sendMessage() {
             const msg = userInput.value.trim();
             if (!msg) return;
 
-            // 渲染用户消息
-            addMessage('user', msg);
+            // 添加用户消息
+            addMessage('user', msg, true);
             userInput.value = '';
 
-            // 渲染AI思考中
-            const aiContentEl = addMessage('ai', '🤔 思考中...');
-
             try {
-                // 调用后端API（100%正确的请求格式）
-                const response = await fetch(`${API_BASE}/chat`, {
+                // 调用Vercel后端API
+                const response = await fetch(API_URL, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        model: 'deepseek-chat',
-                        messages: [
-                            {
-                                role: 'system',
-                                content: '你是银金舒高端宠物服装品牌的专属AI顾问，精通宠物服饰设计、面料工艺、穿搭搭配、品牌运营、跨境电商，为用户提供专业、高端、贴心的服务，24小时在线。'
-                            },
-                            {
-                                role: 'user',
-                                content: msg
-                            }
-                        ]
+                        message: msg
                     })
                 });
 
                 if (!response.ok) {
-                    throw new Error(`API请求失败: ${response.status}`);
+                    throw new Error(`请求失败: ${response.status}`);
                 }
 
                 const data = await response.json();
-                // 更新AI消息
-                aiContentEl.textContent = data.choices[0].message.content;
+                // 添加AI回复
+                const aiReply = data.choices?.[0]?.message?.content || '收到你的消息，后端已连通！';
+                addMessage('ai', aiReply);
+
             } catch (error) {
-                aiContentEl.textContent = `发送失败: ${error.message}`;
-                console.error(error);
+                addMessage('ai', `发送失败: ${error.message}`);
+                console.error('请求错误:', error);
             }
         }
 
-        // 绑定事件（确保按钮和回车都能触发）
+        // 绑定发送事件
         sendBtn.addEventListener('click', sendMessage);
         userInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
