@@ -1,58 +1,38 @@
+# Vercel Python 官方正确格式！！！
+from http.server import BaseHTTPRequestHandler
 import json
-import os
 import requests
+import os
 
-def handler(request):
-    # 1. 完整跨域头，一次性解决所有浏览器预检问题
-    headers = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Max-Age": "86400"
-    }
+class handler(BaseHTTPRequestHandler):
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
 
-    # 2. 优先处理OPTIONS预检请求（浏览器发跨域请求前必发）
-    if request.method == "OPTIONS":
-        return ("", 204, headers)
+    def do_POST(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
 
-    # 3. 只允许POST请求，拦截非法方法
-    if request.method != "POST":
-        return (json.dumps({"error": "Method Not Allowed"}), 405, headers)
+        # 读取消息
+        content_len = int(self.headers.get('Content-Length', 0))
+        post_body = self.rfile.read(content_len)
+        data = json.loads(post_body)
+        message = data.get('message', '你好')
 
-    try:
-        # 4. 读取环境变量密钥，增加空值校验
-        deepseek_key = os.environ.get("DEEPSEEK_API_KEY")
-        if not deepseek_key:
-            return (json.dumps({"error": "未配置DeepSeek API密钥"}), 401, headers)
-
-        # 5. 解析前端请求，兼容空值
-        body = request.json or {}
-        user_msg = body.get("message", "你好")
-
-        # 6. 调用DeepSeek API
-        api_res = requests.post(
+        # 调用AI
+        key = os.environ.get('DEEPSEEK_API_KEY')
+        resp = requests.post(
             "https://api.deepseek.com/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {deepseek_key}",
-                "Content-Type": "application/json"
-            },
             json={
                 "model": "deepseek-chat",
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": "你是银金舒高端宠物服装品牌的专属AI顾问，精通宠物服饰设计、面料工艺、穿搭搭配、品牌运营、跨境电商，为用户提供专业、高端、贴心的服务，24小时在线。"
-                    },
-                    {"role": "user", "content": user_msg}
-                ]
+                "messages": [{"role": "user", "content": message}]
             },
-            timeout=20
+            headers={"Authorization": f"Bearer {key}"}
         )
-        api_res.raise_for_status()
 
-        # 7. 正常返回AI响应
-        return (json.dumps(api_res.json()), 200, headers)
-
-    except Exception as e:
-        # 8. 捕获所有异常，返回友好提示
-        return (json.dumps({"error": str(e)}), 500, headers)
+        self.wfile.write(json.dumps(resp.json()).encode())
